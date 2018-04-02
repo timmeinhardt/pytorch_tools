@@ -1,0 +1,8 @@
+### python ###
+.venv
+*.pyc
+__pycache__
+.ipynb_checkpoints
+.python-version
+*.egg-info/
+
