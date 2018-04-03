@@ -1,4 +1,5 @@
 """Neural Network Training Solver."""
+import time
 import copy
 import itertools
 
@@ -10,26 +11,23 @@ from torch.autograd import Variable
 class Solver(object):
     """Neural Network Training Solver."""
 
-    def __init__(self, optim, optim_kwargs, ada_lr, early_stopping, late_stopping,
-                 epochs, loss, loss_kwargs=None, logger=None, train_log_interval=None):
-        if isinstance(optim, str):
-            self.optim_func = getattr(torch.optim, optim)
-        else:
-            self.optim_func = optim
-        self.optim_kwargs = optim_kwargs
+    def __init__(self, optim, optim_kwargs, ada_lr, early_stopping, epochs,
+                 loss, loss_kwargs=None, logger=None, train_log_interval=None):
+        self._optim_kwargs = optim_kwargs
         self._ada_lr = ada_lr
         self._early_stopping = early_stopping
-        self._late_stopping = late_stopping
         self._epochs = epochs
         self._train_log_interval = train_log_interval
 
+        self._optim_func = optim
+        if isinstance(optim, str):
+            self._optim_func = getattr(torch.optim, optim)
+
+        self.loss_func = loss
         if isinstance(loss, str):
             self.loss_func = getattr(nn, loss)(**loss_kwargs)
-        else:
-            self.loss_func = loss
 
         self._logger = logger
-        self.best_val_model = self.train_hist = self.val_hist = self.optim = None
         self.reset()
 
 
@@ -74,24 +72,6 @@ class Solver(object):
         """
         return len(self.train_hist['acc'])
 
-    def late_stopping(self):
-        """
-        :returns: if solver should stop late
-        :rtype: bool
-        """
-        patience = self._late_stopping['patience']
-        train_val_loss_rel = self._late_stopping['train_val_loss_rel']
-        # late stoppping deactivated
-        if patience is None:
-            return False
-
-        _, _, best_val_loss, _ = self.best_metrics()
-        for val_loss, train_loss in zip(self.val_hist['loss'][-patience:], self.train_hist['loss'][-patience:]):
-            if (val_loss / train_loss).cpu().numpy() < train_val_loss_rel:
-                return False
-
-        return True
-
     def early_stopping(self):
         """
         :returns: if solver should stop early
@@ -121,11 +101,12 @@ class Solver(object):
         """Train model specified epochs on data_loader."""
         model.train()
 
-        self.init_optim(model)
         for _ in self.epochs_iter(epochs):
-            # reset optimizer state dict before next optim steps
-            if hasattr(self.optim, 'reset_state_dict'):
-                self.optim.reset_state_dict()
+            if self.trained_epochs in self._ada_lr['epochs']:
+                # TODO: make optim global and include Scheduler
+                for param_group in self.optim.param_groups:
+                    param_group['lr'] *= self._ada_lr['factor']
+
             loss, acc_sum = 0.0, 0
             for batch_id, (data, target) in enumerate(data_loader, 1):
                 data, target = self._data_loader_to_variables(model, data, target)
@@ -164,11 +145,6 @@ class Solver(object):
                 self.train_hist['acc'].append(acc)
                 self.train_hist['loss'].append(loss)
 
-            # TODO: if save_hist==False it currently triggers one epoch later
-            if self.trained_epochs in self._ada_lr['epochs']:
-                # TODO: make optim global and include Scheduler
-                self._mul_learning_rate(self._ada_lr['factor'])
-
         return loss, acc
 
     def test(self, data_loader):
@@ -185,7 +161,6 @@ class Solver(object):
                   vis_callback=None, train_vis_callback=None,
                   save_best_model=True, reinfer_train_loader=False):
         """Train and validate after each epoch."""
-        import time
         for epoch in self.epochs_iter(epochs):
             start = time.time()
             # train for one epoch
@@ -210,7 +185,7 @@ class Solver(object):
             if vis_callback is not None:
                 vis_callback(self, epoch, time.time() - start)
 
-            if self.early_stopping() or self.late_stopping():
+            if self.early_stopping():
                 break
 
         # logging
@@ -250,11 +225,6 @@ class Solver(object):
 
         return loss, acc
 
-    def _mul_learning_rate(self, factor):
-        # self.optim_kwargs['lr'] *= factor
-        for param_group in self.optim.param_groups:
-            param_group['lr'] *= factor
-
     def epochs_iter(self, epochs):
         """Epochs iterator with support for infinite iterations."""
         if epochs is None:
@@ -267,7 +237,7 @@ class Solver(object):
         return epochs_iter
 
     def init_optim(self, model):
-        self.optim = self.optim_func(model.parameters(), **self.optim_kwargs)
+        self.optim = self._optim_func(model.parameters(), **self._optim_kwargs)
 
     @staticmethod
     def compute_acc(output, target, data):

@@ -69,6 +69,23 @@ def set_random_seeds(_seed):
 
 
 @torch_ingredient.capture
+def save_model_to_path(model, file_name, model_path, cuda):
+    """Save PyTorch model to Observer (MongoDB)."""
+    # model is not jsonpickleble. therefore it is saved as a file and
+    # stored as a binary in the experiment database.
+    if cuda:
+        if isinstance(model, list):
+            save_model = [copy.deepcopy(m).cpu()
+                          if isinstance(m, nn.Module)
+                          else m
+                          for m in model]
+        else:
+            save_model = copy.deepcopy(model).cpu()
+
+    torch.save(save_model, os.path.join(model_path, file_name))
+
+
+@torch_ingredient.capture
 def save_model_to_db(model, file_name, ex, cuda):
     """Save PyTorch model to Observer (MongoDB)."""
     # model is not jsonpickleble. therefore it is saved as a file and
@@ -81,6 +98,7 @@ def save_model_to_db(model, file_name, ex, cuda):
                           for m in model]
         else:
             save_model = copy.deepcopy(model).cpu()
+
     file_descriptor, tmp_file_path = tempfile.mkstemp()
     torch.save(save_model, tmp_file_path)
 
@@ -90,7 +108,6 @@ def save_model_to_db(model, file_name, ex, cuda):
 
 @torch_ingredient.capture
 def load_model_from_db(ex, run_id, model_name, _log):
-    print(run_id)
     run = ex.observers[0].runs.find_one({'_id': run_id})
 
     if run is None:
