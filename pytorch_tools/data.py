@@ -28,37 +28,36 @@ class SubsetSampler(object):  # pylint: disable=too-few-public-methods
     Return subset of dataset. For example to enforce overfitting.
     """
 
-    def __init__(self, sampler=None, shuffle=True, subset_size=None):
-        assert (sampler is not None or subset_size is not None), (
-            "Either argument sampler or subset_size must be given.")
-        if subset_size is None:
-            subset_size = len(sampler)
+    def __init__(self, sampler, subset_size, random_subset=False, shuffle=True):
+        # assert (sampler is not None or subset_size is not None), (
+        #     "Either argument sampler or subset_size must be given.")
+        # if subset_size is None:
+        #     subset_size = len(sampler)
         assert subset_size <= len(sampler), (
             f"The subset size ({subset_size}) must be smaller "
             f"or equal to the sampler size ({len(sampler)}).")
-        self.subset_size = subset_size
-        self.shuffle = shuffle
-        self.sampler = sampler
-        self.set_random_subset()
+        self._subset_size = subset_size
+        self._shuffle = shuffle
+        self._random_subset = random_subset
+        self._sampler = sampler
+        self.set_subset()
 
-    def set_random_subset(self):
-        if self.sampler is None:
-            self.random_subset = \
-                torch.randperm(len(self.sampler))[:self.subset_size]
+    def set_subset(self):
+        """Set subset from sampler with size self._subset_size"""
+        if self._random_subset:
+            self._subset = torch.randperm(len(self._sampler))[:self._subset_size]
         else:
-            self.random_subset = list(self.sampler)[:self.subset_size]
+            self._subset = toch.Tensor(list(self._sampler)[:self._subset_size])
 
     def __iter__(self):
-        if self.shuffle:
-            # train with fixed random subset of dataset
-            return iter(self.random_subset)
-        # if given sampler has randomization we can not easily provide the first
-        raise NotImplementedError
-        # train with first subset of dataset
-        return iter(range(self.subset_size))
+        """Iterate over same or shuffled subset."""
+        if self._shuffle:
+            perm = torch.randperm(self._subset_size)
+            return iter(self._subset[perm].tolist())
+        return iter(self._subset)
 
     def __len__(self):
-        return len(self.random_subset)
+        return len(self._subset)
 
 
 #

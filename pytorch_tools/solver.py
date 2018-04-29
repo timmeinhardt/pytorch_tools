@@ -83,6 +83,10 @@ class Solver(object):
         if patience is None:
             return False
 
+        # _, _, _, best_val_acc = self.best_metrics()
+        # for acc in self.val_hist['acc'][-patience:]:
+        #     if (acc - best_val_acc).cpu().numpy() >= - 1.0 * min_delta:
+        #         return False
         _, _, best_val_loss, _ = self.best_metrics()
         for loss in self.val_hist['loss'][-patience:]:
             if (loss - best_val_loss).cpu().numpy() <= - 1.0 * min_delta:
@@ -115,6 +119,7 @@ class Solver(object):
                 output = model(data)
                 batch_loss = self.loss_func(output, target)
                 batch_loss.backward()
+                # torch.nn.utils.clip_grad_norm(model.parameters(), 1.0)
                 self.optim.step()
 
                 batch_acc = self.compute_acc(output, target, data)
@@ -147,12 +152,15 @@ class Solver(object):
 
         return loss, acc
 
-    def test(self, data_loader):
+    def test(self, data_loader, model=None):
         """Test best val model on data_loader."""
-        assert self.best_val_model is not None, (
-            "The best validation model is None and can not be tested.")
+        if model is None:
+            assert self.best_val_model is not None, (
+                "The best validation model is None and can not be tested."
+                "Please provide a model file or save model during training.")
+            model = self.best_val_model
 
-        loss, acc = self._infer_data_loader(self.best_val_model, data_loader)
+        loss, acc = self._infer_data_loader(model, data_loader)
         self._log(f"TEST = loss/acc: {loss[0]:.4f}/{acc[0]:.2%}")
 
         return loss, acc
@@ -184,7 +192,7 @@ class Solver(object):
 
             if vis_callback is not None:
                 vis_callback(self, epoch, time.time() - start)
-
+            # print(time.time() - start)
             if self.early_stopping():
                 break
 
