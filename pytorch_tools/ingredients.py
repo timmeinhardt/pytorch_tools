@@ -43,7 +43,7 @@ def cuda_is_available():
 
 @torch_ingredient.config
 def config(cuda, deterministic, benchmark):
-    torch.backends.cudnn.fastest = True
+    torch.backends.cudnn.fastest = not deterministic
     torch.backends.cudnn.benchmark = benchmark
     torch.backends.cudnn.deterministic = deterministic
 

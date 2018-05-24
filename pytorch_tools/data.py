@@ -28,26 +28,27 @@ class SubsetSampler(object):  # pylint: disable=too-few-public-methods
     Return subset of dataset. For example to enforce overfitting.
     """
 
-    def __init__(self, sampler, subset_size, random_subset=False, shuffle=True):
+    def __init__(self, indices, subset_size, random_subset=False, shuffle=True):
         # assert (sampler is not None or subset_size is not None), (
         #     "Either argument sampler or subset_size must be given.")
         # if subset_size is None:
         #     subset_size = len(sampler)
-        assert subset_size <= len(sampler), (
+        assert subset_size <= len(indices), (
             f"The subset size ({subset_size}) must be smaller "
-            f"or equal to the sampler size ({len(sampler)}).")
+            f"or equal to the sampler size ({len(indices)}).")
         self._subset_size = subset_size
         self._shuffle = shuffle
         self._random_subset = random_subset
-        self._sampler = sampler
+        self._indices = indices
         self.set_subset()
 
     def set_subset(self):
         """Set subset from sampler with size self._subset_size"""
         if self._random_subset:
-            self._subset = torch.randperm(len(self._sampler))[:self._subset_size]
+            perm = torch.randperm(len(self._indices))
+            self._subset = self._indices[perm][:self._subset_size]
         else:
-            self._subset = toch.Tensor(list(self._sampler)[:self._subset_size])
+            self._subset = toch.Tensor(self._indices[:self._subset_size])
 
     def __iter__(self):
         """Iterate over same or shuffled subset."""

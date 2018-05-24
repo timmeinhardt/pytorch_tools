@@ -22,9 +22,11 @@ def init_weights_kaiming(module):
         nn.init.constant(module.bias.data, 0.0)
 
 
-def init_biases_zero(module):
-    if isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear):
-        nn.init.constant(module.bias.data, val=0.0)
+def init_biases_value(value):
+    def wrapper(module):
+        if isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear):
+            nn.init.constant(module.bias.data, val=value)
+    return wrapper
 
 
 class BaseNN(nn.Module):

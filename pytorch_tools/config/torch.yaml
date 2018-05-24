@@ -1,6 +1,6 @@
 cuda: null                      # compute with CUDA. is set automatically if null (default: null)
 deterministic: True             # if True, fast CUDNN is deactivated
-benchmark: True                 # if True, CUDNN finds best methods. select if input dims do not change.
+benchmark: False                 # if True, CUDNN finds best methods. select if input dims do not change.
 print_config: False
 cuda_device_id: 0
 log_to_db: False
