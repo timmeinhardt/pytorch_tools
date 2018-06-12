@@ -44,14 +44,11 @@ class LineVis(BaseVis):
             Y = torch.Tensor(y_data)
             X = torch.Tensor(x_label)
         else:
-            y_data = [d.data if isinstance(d, torch.autograd.Variable)
-                      else d for d in y_data]
-            y_data = [d.cpu() if isinstance(d, torch._TensorBase)
-                      else torch.Tensor([d])
+            y_data = [d.cpu() if torch.is_tensor(d)
+                      else torch.tensor(d)
                       for d in y_data]
 
-            Y = torch.stack(y_data, dim=1).squeeze(dim=1)
-            # X = torch.Tensor([len(y_data) * [x_label]]).squeeze(dim=1)
+            Y = torch.Tensor(y_data).unsqueeze(dim=0)
             X = torch.Tensor([x_label])
 
         win = self.viz.line(

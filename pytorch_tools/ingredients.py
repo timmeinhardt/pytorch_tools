@@ -2,6 +2,8 @@
 import os
 import copy
 import tempfile
+import random
+import numpy as np
 
 import sacred
 import torch
@@ -62,6 +64,8 @@ def config(cuda, deterministic, benchmark):
 
 @torch_ingredient.capture
 def set_random_seeds(_seed):
+    random.seed(_seed)
+    np.random.seed(_seed)
     torch.manual_seed(_seed)
     # if torch.cuda.is_available():
     if cuda_is_available():

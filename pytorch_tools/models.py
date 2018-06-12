@@ -9,23 +9,23 @@ from torch.autograd import Variable
 def init_weights_normal(std):
     def wrapper(module):
         if isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear):
-            nn.init.normal(module.weight.data, mean=0.0, std=std)
+            nn.init.normal_(module.weight, mean=0.0, std=std)
     return wrapper
 
 
 def init_weights_kaiming(module):
     if isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear):
-        nn.init.kaiming_normal(module.weight.data, a=0, mode='fan_in')
+        nn.init.kaiming_normal_(module.weight, a=0, mode='fan_in')
     elif isinstance(module, nn.BatchNorm2d):
         num_features = len(module.weight)
         module.weight.data.normal_(mean=0, std=math.sqrt(2. / 9. / num_features)).clamp_(-0.025,0.025)
-        nn.init.constant(module.bias.data, 0.0)
+        nn.init.constant_(module.bias, 0.0)
 
 
 def init_biases_value(value):
     def wrapper(module):
         if isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear):
-            nn.init.constant(module.bias.data, val=value)
+            nn.init.constant_(module.bias, val=value)
     return wrapper
 
 
@@ -51,8 +51,9 @@ class BaseNN(nn.Module):
         return torch.stack([p.data.view(p.numel()).mean(dim=0)
                             for p in self.parameters()], dim=1)
 
-    def get_device(self):
-        return next(self.parameters()).get_device()
+    @property
+    def device(self):
+        return next(self.parameters()).device
 
     def reset(self):
         """Reset model."""

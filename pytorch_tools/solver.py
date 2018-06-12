@@ -53,15 +53,13 @@ class Solver(object):
         train_loss = train_acc = val_loss = val_acc = None
 
         if self.train_hist['loss']:
-            train_loss, _ = torch.cat(self.train_hist['loss']).sort(dim=0)
+            train_loss, _ = torch.Tensor(self.train_hist['loss']).sort(dim=0)
         if self.train_hist['acc']:
-            train_acc, _ = torch.cat(self.train_hist['acc']).sort(
-                dim=0, descending=True)
+            train_acc, _ = torch.Tensor(self.train_hist['acc']).sort(dim=0, descending=True)
         if self.val_hist['loss']:
-            val_loss, _ = torch.cat(self.val_hist['loss']).sort(dim=0)
+            val_loss, _ = torch.Tensor(self.val_hist['loss']).sort(dim=0)
         if self.val_hist['acc']:
-            val_acc, _ = torch.cat(self.val_hist['acc']).sort(
-                dim=0, descending=True)
+            val_acc, _ = torch.Tensor(self.val_hist['acc']).sort(dim=0, descending=True)
         return train_loss[:n], train_acc[:n], val_loss[:n], val_acc[:n]
 
     @property
@@ -79,18 +77,21 @@ class Solver(object):
         """
         patience = self._early_stopping['patience']
         min_delta = self._early_stopping['min_delta']
+        metric = self._early_stopping['metric']
+
         # early stoppping deactivated
         if patience is None:
             return False
 
-        # _, _, _, best_val_acc = self.best_metrics()
-        # for acc in self.val_hist['acc'][-patience:]:
-        #     if (acc - best_val_acc).cpu().numpy() >= - 1.0 * min_delta:
-        #         return False
-        _, _, best_val_loss, _ = self.best_metrics()
-        for loss in self.val_hist['loss'][-patience:]:
-            if (loss - best_val_loss).cpu().numpy() <= - 1.0 * min_delta:
-                return False
+        _, _, best_val_loss, best_val_acc = self.best_metrics()
+
+        for m in self.val_hist[metric][-patience:]:
+            if metric == 'acc':
+                if (m - best_val_acc).cpu().numpy() >= - 1.0 * min_delta:
+                    return False
+            else:
+                if (m - best_val_loss).item() <= 1.0 * min_delta:
+                    return False
 
         return True
 
@@ -104,6 +105,7 @@ class Solver(object):
               vis_callback=None):
         """Train model specified epochs on data_loader."""
         model.train()
+        device = model.device
 
         for _ in self.epochs_iter(epochs):
             if self.trained_epochs in self._ada_lr['epochs']:
@@ -113,18 +115,17 @@ class Solver(object):
 
             loss, acc_sum = 0.0, 0
             for batch_id, (data, target) in enumerate(data_loader, 1):
-                data, target = self._data_loader_to_variables(model, data, target)
+                data, target = data.to(device), target.to(device)
 
                 self.optim.zero_grad()
                 output = model(data)
                 batch_loss = self.loss_func(output, target)
                 batch_loss.backward()
-                # torch.nn.utils.clip_grad_norm(model.parameters(), 1.0)
                 self.optim.step()
 
                 batch_acc = self.compute_acc(output, target, data)
-                loss += batch_loss.data
-                acc_sum += batch_acc
+                loss += batch_loss.item()
+                acc_sum += batch_acc.item()
 
                 # logging
                 if (self._train_log_interval is not None
@@ -136,16 +137,16 @@ class Solver(object):
                         f"[Samples {batch_id * len(data)}/"
                         f"{data_loader.num_samples}] "
                         f"Batch {batch_id} "
-                        f"loss/acc {batch_loss.data[0] / len(data):.4f}/"
-                        f"{batch_acc[0] / len(data):.2%} "
-                        f"({batch_acc[0]}/{len(data)})")
+                        f"loss/acc {batch_loss.item() / len(data):.4f}/"
+                        f"{batch_acc.item() / len(data):.2%} "
+                        f"({batch_acc.item()}/{len(data)})")
                     self._log(log_msg)
 
                 if vis_callback is not None:
                     vis_callback(self, batch_loss, batch_acc, data, target, output, batch_id)
 
             loss /= data_loader.num_samples
-            acc = acc_sum.float() / data_loader.num_samples
+            acc = acc_sum / data_loader.num_samples
             if save_hist:
                 self.train_hist['acc'].append(acc)
                 self.train_hist['loss'].append(loss)
@@ -161,7 +162,7 @@ class Solver(object):
             model = self.best_val_model
 
         loss, acc = self._infer_data_loader(model, data_loader)
-        self._log(f"TEST = loss/acc: {loss[0]:.4f}/{acc[0]:.2%}")
+        self._log(f"TEST = loss/acc: {loss:.4f}/{acc:.2%}")
 
         return loss, acc
 
@@ -187,18 +188,18 @@ class Solver(object):
             self.val_hist['acc'].append(val_acc)
             _, _, _, best_val_acc = self.best_metrics()
 
-            if save_best_model and val_acc.equal(best_val_acc):
+            if save_best_model and (val_acc == best_val_acc).item():
                 self.best_val_model = copy.deepcopy(model)
 
             if vis_callback is not None:
                 vis_callback(self, epoch, time.time() - start)
-            # print(time.time() - start)
+
             if self.early_stopping():
                 break
 
         # logging
-        self._log(f"TRAIN = loss/acc: {train_loss[0]:.4f}/{train_acc[0]:.2%}")
-        self._log(f"VAL   = loss/acc: {val_loss[0]:.4f}/{val_acc[0]:.2%}")
+        self._log(f"TRAIN = loss/acc: {train_loss:.4f}/{train_acc:.2%}")
+        self._log(f"VAL   = loss/acc: {val_loss:.4f}/{val_acc:.2%}")
 
         return train_loss, train_acc, val_loss, val_acc
 
@@ -206,30 +207,24 @@ class Solver(object):
         if self._logger is not None:
             self._logger(log_msg)
 
-    def _data_loader_to_variables(self, model, data, target, volatile=False):
-        if model.is_cuda:
-            device_id = model.get_device()
-            data, target = data.cuda(device_id), target.cuda(device_id)
-        data, target = Variable(data, volatile=volatile), Variable(target)
-        return data, target
-
     def _infer_data_loader(self, model, data_loader):
         """Infer entire data loader and evaluate model."""
         model.eval()
+        device = model.device
 
         loss, acc_sum = 0.0, 0
-        for data, target in data_loader:
-            data, target = self._data_loader_to_variables(model, data, target,
-                                                          volatile=True)
+        with torch.no_grad():
+            for data, target in data_loader:
+                data, target = data.to(device), target.to(device)
 
-            output = model(data)
-            loss += self.loss_func(output, target).data
-            acc_sum += self.compute_acc(output, target, data)
+                output = model(data)
+                loss += self.loss_func(output, target).item()
+                acc_sum += self.compute_acc(output, target, data).item()
 
         model.train()
 
         loss /= data_loader.num_samples
-        acc = acc_sum.float() / data_loader.num_samples
+        acc = acc_sum / data_loader.num_samples
 
         return loss, acc
 

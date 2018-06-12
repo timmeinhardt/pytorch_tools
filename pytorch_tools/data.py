@@ -2,7 +2,7 @@
 import numpy as np
 import torch
 from torch.utils.data import DataLoader as _DataLoader
-from torch.utils.data.sampler import SubsetRandomSampler
+from torch.utils.data.sampler import Sampler, SubsetRandomSampler
 from torchvision import datasets, transforms
 
 
@@ -23,7 +23,7 @@ class DataLoader(_DataLoader):  # pylint: disable=too-few-public-methods
         return len(self.sampler)
 
 
-class SubsetSampler(object):  # pylint: disable=too-few-public-methods
+class SubsetSampler(Sampler):  # pylint: disable=too-few-public-methods
     """
     Return subset of dataset. For example to enforce overfitting.
     """
@@ -68,7 +68,7 @@ class SubsetSampler(object):  # pylint: disable=too-few-public-methods
 class ToTensor(transforms.ToTensor):
 
     def __call__(self, pic):
-        if isinstance(pic, torch._TensorBase):
+        if torch.is_tensor(pic):
             pic = pic.float()
             pic.div_(255.0)
             return pic
@@ -76,14 +76,14 @@ class ToTensor(transforms.ToTensor):
         return super(ToTensor, self).__call__(pic)
 
 
-class ToCUDA(object):
+class ToDevice(object):
 
     def __init__(self, device=None):
         self._device = device
 
     def __call__(self, tensor):
-        return tensor.cuda(self._device)
-
+        t = tensor.to(self._device)
+        return t
 
 class Unsqueeze(object):
 
