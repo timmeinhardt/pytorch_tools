@@ -157,8 +157,8 @@ class Solver(object):
         """Test best val model on data_loader."""
         if model is None:
             assert self.best_val_model is not None, (
-                "The best validation model is None and can not be tested."
-                "Please provide a model file or save model during training.")
+                "The best validation model is None and can not be tested. "
+                "Please provide a model file or save best model during training.")
             model = self.best_val_model
 
         loss, acc = self._infer_data_loader(model, data_loader)

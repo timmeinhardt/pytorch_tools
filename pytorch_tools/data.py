@@ -29,10 +29,6 @@ class SubsetSampler(Sampler):  # pylint: disable=too-few-public-methods
     """
 
     def __init__(self, indices, subset_size, random_subset=False, shuffle=True):
-        # assert (sampler is not None or subset_size is not None), (
-        #     "Either argument sampler or subset_size must be given.")
-        # if subset_size is None:
-        #     subset_size = len(sampler)
         assert subset_size <= len(indices), (
             f"The subset size ({subset_size}) must be smaller "
             f"or equal to the sampler size ({len(indices)}).")
@@ -40,6 +36,7 @@ class SubsetSampler(Sampler):  # pylint: disable=too-few-public-methods
         self._shuffle = shuffle
         self._random_subset = random_subset
         self._indices = indices
+        self._subset = None
         self.set_subset()
 
     def set_subset(self):

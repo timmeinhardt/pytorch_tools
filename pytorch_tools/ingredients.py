@@ -52,6 +52,7 @@ def config(cuda, deterministic, benchmark):
     if cuda is None:
         # cuda = torch.cuda.is_available()
         cuda = cuda_is_available()
+
     if cuda:
         # assert torch.cuda.is_available(), (
         #    "CUDA is not available. Please set "
@@ -67,9 +68,6 @@ def set_random_seeds(_seed):
     random.seed(_seed)
     np.random.seed(_seed)
     torch.manual_seed(_seed)
-    # if torch.cuda.is_available():
-    if cuda_is_available():
-        torch.cuda.manual_seed_all(_seed)
 
 
 @torch_ingredient.capture
