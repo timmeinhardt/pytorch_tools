@@ -20,10 +20,16 @@ class BaseVis(object):
         # if resume first plot should not update with replace
         self.removed = not resume
 
+    def win_exists(self):
+        return self.viz.win_exists(self.win)
+
     def close(self):
         if self.win is not None:
             self.viz.close(win=self.win)
             self.win = None
+
+    def register_event_handler(self, handler):
+        self.viz.register_event_handler(handler, self.win)
 
 
 class LineVis(BaseVis):
@@ -34,10 +40,10 @@ class LineVis(BaseVis):
 
         Appends new data to exisiting line visualization.
         """
-        update, opts = self.update_mode, None
+        update = self.update_mode
         # update mode must be None the first time or after plot data was removed
         if self.removed:
-            update, opts = None, self.viz_opts
+            update = None
             self.removed = False
 
         if isinstance(x_label, list):
@@ -51,20 +57,17 @@ class LineVis(BaseVis):
             Y = torch.Tensor(y_data).unsqueeze(dim=0)
             X = torch.Tensor([x_label])
 
-        win = self.viz.line(
-            X=X,
-            Y=Y,
-            opts=self.viz_opts,
-            win=self.win,
-            update=update)
+        win = self.viz.line(X=X, Y=Y, opts=self.viz_opts, win=self.win, update=update)
 
         if self.win is None:
             self.win = win
         self.viz.save([self.viz.env])
 
     def reset(self):
+        #TODO: currently reset does not empty directly only on the next plot.
+        # update='remove' is not working as expected.
         if self.win is not None:
-            self.viz.line(X=None, Y=None, win=self.win, name='', update='remove')
+            # self.viz.line(X=None, Y=None, win=self.win, update='remove')
             self.removed = True
 
 
@@ -115,3 +118,14 @@ class ImgVis(BaseVis):
             opts=self.viz_opts,
             win=self.win, )
         self.viz.save([self.viz.env])
+
+
+class TextVis(BaseVis):
+    """Visdom Text Visualization Helper Class."""
+
+    def plot(self, text):
+        """Plot given text."""
+
+        self.win = self.viz.text(text, opts=self.viz_opts, win=self.win, )
+        self.viz.save([self.viz.env])
+

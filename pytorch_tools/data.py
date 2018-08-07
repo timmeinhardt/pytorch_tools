@@ -28,10 +28,13 @@ class SubsetSampler(Sampler):  # pylint: disable=too-few-public-methods
     Return subset of dataset. For example to enforce overfitting.
     """
 
-    def __init__(self, indices, subset_size, random_subset=False, shuffle=True):
+    def __init__(self, indices, subset_size=None, random_subset=False, shuffle=False):
+        if subset_size is None:
+            subset_size = len(indices)
         assert subset_size <= len(indices), (
             f"The subset size ({subset_size}) must be smaller "
             f"or equal to the sampler size ({len(indices)}).")
+
         self._subset_size = subset_size
         self._shuffle = shuffle
         self._random_subset = random_subset
@@ -45,7 +48,7 @@ class SubsetSampler(Sampler):  # pylint: disable=too-few-public-methods
             perm = torch.randperm(len(self._indices))
             self._subset = self._indices[perm][:self._subset_size]
         else:
-            self._subset = toch.Tensor(self._indices[:self._subset_size])
+            self._subset = self._indices[:self._subset_size]
 
     def __iter__(self):
         """Iterate over same or shuffled subset."""
@@ -99,5 +102,21 @@ class Squeeze(object):
 
     def __call__(self, tensor):
         tensor.squeeze_(dim=self.dim)
+        return tensor
+
+
+class NormalizeBatch(transforms.Normalize):
+    """Applies channelwise normalization to an entire batch not only a single sample."""
+    def __call__(self, tensor):
+        """
+        Args:
+            tensor (Tensor): Tensor batch of size (N, C, H, W) to be normalized.
+
+        Returns:
+            Tensor: Normalized batch.
+        """
+        # TODO: make efficient
+        for i, (m, s) in enumerate(zip(self.mean, self.std)):
+            tensor[:, i].sub_(m).div_(s)
         return tensor
 

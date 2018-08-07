@@ -49,7 +49,7 @@ class BaseNN(nn.Module):
     @property
     def param_means(self):
         return torch.stack([p.data.view(p.numel()).mean(dim=0)
-                            for p in self.parameters()], dim=1)
+                            for p in self.parameters()])
 
     @property
     def device(self):
