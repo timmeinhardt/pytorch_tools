@@ -92,6 +92,7 @@ def save_model_to_db(model, file_name, ex, cuda):
     """Save PyTorch model to Observer (MongoDB)."""
     # model is not jsonpickleble. therefore it is saved as a file and
     # stored as a binary in the experiment database.
+    save_model = model
     if cuda:
         if isinstance(model, list):
             save_model = [copy.deepcopy(m).cpu()
