@@ -44,23 +44,22 @@ def cuda_is_available():
 
 
 @torch_ingredient.config
-def config(cuda, deterministic, benchmark):
+def config(device, deterministic, benchmark):
     torch.backends.cudnn.fastest = not deterministic
     torch.backends.cudnn.benchmark = benchmark
     torch.backends.cudnn.deterministic = deterministic
 
-    if cuda is None:
-        # cuda = torch.cuda.is_available()
-        cuda = cuda_is_available()
+    if device is None:
+        if cuda_is_available():
+            device = torch.device("cuda:0")
+        else:
+            device = torch.device("cpu")
+    else:
+        device = torch.device(device)
 
-    if cuda:
-        # assert torch.cuda.is_available(), (
-        #    "CUDA is not available. Please set "
-        #    f"{torch_ingredient.path}.cuda=False.")
-
-        assert cuda_is_available(), (
-            "CUDA is not available. Please set "
-            f"{torch_ingredient.path}.cuda=False.")
+    if 'cuda' in device.type:
+        assert cuda_is_available(), ("CUDA is not available. Please set "
+                                     f"{torch_ingredient.path}.device=cpu")
 
 
 @torch_ingredient.capture
@@ -75,7 +74,7 @@ def save_model_to_path(model, file_name, model_path, cuda):
     """Save PyTorch model to Observer (MongoDB)."""
     # model is not jsonpickleble. therefore it is saved as a file and
     # stored as a binary in the experiment database.
-    if cuda:
+    if 'cuda' in device.type:
         if isinstance(model, list):
             save_model = [copy.deepcopy(m).cpu()
                           if isinstance(m, nn.Module)
@@ -93,7 +92,7 @@ def save_model_to_db(model, file_name, ex, cuda):
     # model is not jsonpickleble. therefore it is saved as a file and
     # stored as a binary in the experiment database.
     save_model = model
-    if cuda:
+    if 'cuda' in device.type:
         if isinstance(model, list):
             save_model = [copy.deepcopy(m).cpu()
                           if isinstance(m, nn.Module)
@@ -166,5 +165,3 @@ def setup_db_logging(log_to_db, _run):
         _run.observers = []
 
     print_config()  # pylint: disable=no-value-for-parameter
-
-
