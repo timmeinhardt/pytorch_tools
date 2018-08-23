@@ -12,12 +12,18 @@ class Solver(object):
     """Neural Network Training Solver."""
 
     def __init__(self, optim, optim_kwargs, ada_lr, early_stopping, epochs,
-                 loss, loss_kwargs=None, logger=None, train_log_interval=None):
+                 loss, loss_kwargs_train=None, loss_kwargs_infer=None,
+                 logger=None, train_log_interval=None):
         self._optim_kwargs = optim_kwargs
         self._ada_lr = ada_lr
         self._early_stopping = early_stopping
         self._epochs = epochs
         self._train_log_interval = train_log_interval
+        self._logger = logger
+
+        if train_log_interval is not None:
+            assert logger is not None, ('Solver needs a logger function if '
+                                        'train_log_interval is not None.')
 
         self._optim_func = optim
         if isinstance(optim, str):
@@ -25,9 +31,9 @@ class Solver(object):
 
         self.loss_func = loss
         if isinstance(loss, str):
-            self.loss_func = getattr(nn, loss)(**loss_kwargs)
+            self.loss_func_train = getattr(nn, loss)(**loss_kwargs_train)
+            self.loss_func_infer = getattr(nn, loss)(**loss_kwargs_infer)
 
-        self._logger = logger
         self.reset()
 
 
@@ -126,7 +132,7 @@ class Solver(object):
 
                 self.optim.zero_grad()
                 output = model(data)
-                batch_loss = self.loss_func(output, target)
+                batch_loss = self.loss_func_train(output, target)
                 batch_loss.backward()
                 self.optim.step()
 
@@ -137,7 +143,6 @@ class Solver(object):
                 # logging
                 if (self._train_log_interval is not None
                         and not batch_id % self._train_log_interval):
-                    assert self._logger is not None
                     max_epochs = len(self.epochs_iter(self._epochs))
                     log_msg = (
                         f"TRAIN = [Epoch {self.trained_epochs}/{max_epochs}] "
@@ -152,7 +157,7 @@ class Solver(object):
                 if vis_callback is not None:
                     vis_callback(self, batch_loss, batch_acc, data, target, output, batch_id)
 
-            loss /= data_loader.num_samples
+            loss /= len(data_loader)
             acc = acc_sum / data_loader.num_samples
             if save_hist:
                 self.train_hist['acc'].append(acc)
@@ -225,7 +230,7 @@ class Solver(object):
                 data, target = data.to(device), target.to(device)
 
                 output = model(data)
-                loss += self.loss_func(output, target).item()
+                loss += self.loss_func_infer(output, target).item()
                 acc_sum += self.compute_acc(output, target, data).item()
 
         model.train()
