@@ -219,26 +219,29 @@ class Solver(object):
         if self._logger is not None:
             self._logger(log_msg)
 
-    def _infer_data_loader(self, model, data_loader):
+    def _infer_data_loader(self, model, data_loader, backward=False):
         """Infer entire data loader and evaluate model."""
         model.eval()
-        device = model.device
 
-        loss, acc_sum = 0.0, 0
-        with torch.no_grad():
+        loss_sum, acc_sum = 0.0, 0
+        torch_ctx = torch.enable_grad if backward else torch.no_grad
+        with torch_ctx():
             for data, target in data_loader:
-                data, target = data.to(device), target.to(device)
+                data, target = data.to(model.device), target.to(model.device)
 
                 output = model(data)
-                loss += self.loss_func_infer(output, target).item()
+                loss = self.loss_func_infer(output, target)
+
+                if backward:
+                    loss.backward()
+
+                loss_sum += loss.item()
                 acc_sum += self.compute_acc(output, target, data).item()
 
-        model.train()
-
-        loss /= data_loader.num_samples
+        loss_sum /= data_loader.num_samples
         acc = acc_sum / data_loader.num_samples
 
-        return loss, acc
+        return loss_sum, acc
 
     def epochs_iter(self, epochs):
         """Epochs iterator with support for infinite iterations."""
