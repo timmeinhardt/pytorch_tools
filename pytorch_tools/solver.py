@@ -36,9 +36,8 @@ class Solver(object):
 
         self.reset()
 
-
     @property
-    def last_metrics(self):
+    def current_metrics(self):
         """
         """
         train_loss = train_acc = val_loss = val_acc = None
@@ -51,6 +50,22 @@ class Solver(object):
             val_loss = self.val_hist['loss'][-1]
         if self.val_hist['acc']:
             val_acc = self.val_hist['acc'][-1]
+        return train_loss, train_acc, val_loss, val_acc
+
+    @property
+    def last_metrics(self):
+        """
+        """
+        train_loss = train_acc = val_loss = val_acc = None
+
+        if self.train_hist['loss']:
+            train_loss = self.train_hist['loss'][-2]
+        if self.train_hist['acc']:
+            train_acc = self.train_hist['acc'][-2]
+        if self.val_hist['loss']:
+            val_loss = self.val_hist['loss'][-2]
+        if self.val_hist['acc']:
+            val_acc = self.val_hist['acc'][-2]
         return train_loss, train_acc, val_loss, val_acc
 
     def best_metrics(self, n=1):
@@ -66,7 +81,11 @@ class Solver(object):
             val_loss, _ = torch.Tensor(self.val_hist['loss']).sort(dim=0)
         if self.val_hist['acc']:
             val_acc, _ = torch.Tensor(self.val_hist['acc']).sort(dim=0, descending=True)
-        return train_loss[:n], train_acc[:n], val_loss[:n], val_acc[:n]
+
+        if n > 1:
+            return train_loss[:n], train_acc[:n], val_loss[:n], val_acc[:n]
+        else:
+            return train_loss[0], train_acc[0], val_loss[0], val_acc[0]
 
     @property
     def trained_epochs(self):
@@ -165,22 +184,19 @@ class Solver(object):
 
         return loss, acc
 
-    def test(self, data_loader, model=None):
-        """Test best val model on data_loader."""
-        if model is None:
-            assert self.best_val_model is not None, (
-                "The best validation model is None and can not be tested. "
-                "Please provide a model file or save best model during training.")
-            model = self.best_val_model
+    def val(self, model, val_loader, save_hist=True, backward=False):
+        """Infer val loader on model."""
+        val_loss, val_acc = self._infer_data_loader(model, val_loader, backward)
 
-        loss, acc = self._infer_data_loader(model, data_loader)
-        self._log(f"TEST = loss/acc: {loss:.4f}/{acc:.2%}")
+        self.val_hist['loss'].append(val_loss)
+        self.val_hist['acc'].append(val_acc)
+        self._log(f"VAL = loss/acc: {val_loss:.4f}/{val_acc:.2%}")
 
-        return loss, acc
+        return val_loss, val_acc
 
     def train_val(self, model, train_loader, val_loader, epochs=None,
                   vis_callback=None, train_vis_callback=None,
-                  save_best_model=True, reinfer_train_loader=False):
+                  save_best_val_model=True, reinfer_train_loader=False):
         """Train and validate after each epoch."""
         for epoch in self.epochs_iter(epochs):
             start = time.time()
@@ -198,10 +214,9 @@ class Solver(object):
             self.train_hist['acc'].append(train_acc)
             self.val_hist['loss'].append(val_loss)
             self.val_hist['acc'].append(val_acc)
-            _, _, _, best_val_acc = self.best_metrics()
 
-            if save_best_model and (val_acc == best_val_acc).item():
-                self.best_val_model = copy.deepcopy(model)
+            if save_best_val_model:
+                self.save_best_val_model(model)
 
             if vis_callback is not None:
                 vis_callback(self, epoch, time.time() - start)
@@ -214,6 +229,26 @@ class Solver(object):
         self._log(f"VAL   = loss/acc: {val_loss:.4f}/{val_acc:.2%}")
 
         return train_loss, train_acc, val_loss, val_acc
+
+    def test(self, data_loader, model=None):
+        """Test best val model on data_loader."""
+        if model is None:
+            assert self.best_val_model is not None, (
+                "The best validation model is None and can not be tested. "
+                "Please provide a model file or save best model during training.")
+            model = self.best_val_model
+
+        loss, acc = self._infer_data_loader(model, data_loader)
+        self._log(f"TEST = loss/acc: {loss:.4f}/{acc:.2%}")
+
+        return loss, acc
+
+    def save_best_val_model(self, model):
+        _, _, _, best_val_acc = self.best_metrics()
+        _, _, _, val_acc = self.current_metrics
+
+        if (val_acc == best_val_acc).item():
+            self.best_val_model = copy.deepcopy(model)
 
     def _log(self, log_msg):
         if self._logger is not None:
