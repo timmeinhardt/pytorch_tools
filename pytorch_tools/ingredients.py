@@ -70,7 +70,7 @@ def set_random_seeds(_seed):
 
 
 @torch_ingredient.capture
-def save_model_to_path(model, file_name, model_path, cuda):
+def save_model_to_path(model, file_name, model_path, device):
     """Save PyTorch model to Observer (MongoDB)."""
     # model is not jsonpickleble. therefore it is saved as a file and
     # stored as a binary in the experiment database.
@@ -87,7 +87,7 @@ def save_model_to_path(model, file_name, model_path, cuda):
 
 
 @torch_ingredient.capture
-def save_model_to_db(model, file_name, ex, cuda):
+def save_model_to_db(model, file_name, ex, device):
     """Save PyTorch model to Observer (MongoDB)."""
     # model is not jsonpickleble. therefore it is saved as a file and
     # stored as a binary in the experiment database.

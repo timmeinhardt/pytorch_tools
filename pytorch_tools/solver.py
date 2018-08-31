@@ -74,13 +74,13 @@ class Solver(object):
         train_loss = train_acc = val_loss = val_acc = None
 
         if self.train_hist['loss']:
-            train_loss, _ = torch.Tensor(self.train_hist['loss']).sort(dim=0)
+            train_loss, _ = torch.tensor(self.train_hist['loss']).sort(dim=0)
         if self.train_hist['acc']:
-            train_acc, _ = torch.Tensor(self.train_hist['acc']).sort(dim=0, descending=True)
+            train_acc, _ = torch.tensor(self.train_hist['acc']).sort(dim=0, descending=True)
         if self.val_hist['loss']:
-            val_loss, _ = torch.Tensor(self.val_hist['loss']).sort(dim=0)
+            val_loss, _ = torch.tensor(self.val_hist['loss']).sort(dim=0)
         if self.val_hist['acc']:
-            val_acc, _ = torch.Tensor(self.val_hist['acc']).sort(dim=0, descending=True)
+            val_acc, _ = torch.tensor(self.val_hist['acc']).sort(dim=0, descending=True)
 
         if n > 1:
             return train_loss[:n], train_acc[:n], val_loss[:n], val_acc[:n]
