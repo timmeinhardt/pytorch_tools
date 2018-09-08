@@ -42,14 +42,15 @@ class Solver(object):
         """
         train_loss = train_acc = val_loss = val_acc = None
 
-        if self.train_hist['loss']:
-            train_loss = self.train_hist['loss'][-1]
-        if self.train_hist['acc']:
-            train_acc = self.train_hist['acc'][-1]
-        if self.val_hist['loss']:
-            val_loss = self.val_hist['loss'][-1]
-        if self.val_hist['acc']:
-            val_acc = self.val_hist['acc'][-1]
+        if len(self.train_hist['loss']):
+            if self.train_hist['loss']:
+                train_loss = self.train_hist['loss'][-1]
+            if self.train_hist['acc']:
+                train_acc = self.train_hist['acc'][-1]
+            if self.val_hist['loss']:
+                val_loss = self.val_hist['loss'][-1]
+            if self.val_hist['acc']:
+                val_acc = self.val_hist['acc'][-1]
         return train_loss, train_acc, val_loss, val_acc
 
     @property
@@ -58,14 +59,15 @@ class Solver(object):
         """
         train_loss = train_acc = val_loss = val_acc = None
 
-        if self.train_hist['loss']:
-            train_loss = self.train_hist['loss'][-2]
-        if self.train_hist['acc']:
-            train_acc = self.train_hist['acc'][-2]
-        if self.val_hist['loss']:
-            val_loss = self.val_hist['loss'][-2]
-        if self.val_hist['acc']:
-            val_acc = self.val_hist['acc'][-2]
+        if len(self.train_hist['loss']) > 1:
+            if self.train_hist['loss']:
+                train_loss = self.train_hist['loss'][-2]
+            if self.train_hist['acc']:
+                train_acc = self.train_hist['acc'][-2]
+            if self.val_hist['loss']:
+                val_loss = self.val_hist['loss'][-2]
+            if self.val_hist['acc']:
+                val_acc = self.val_hist['acc'][-2]
         return train_loss, train_acc, val_loss, val_acc
 
     def best_metrics(self, n=1):
@@ -110,11 +112,13 @@ class Solver(object):
 
         _, _, best_val_loss, best_val_acc = self.best_metrics()
 
+        if self.trained_epochs < patience:
+            return False
+
         metric_hist = torch.Tensor(self.val_hist[metric][-patience:])
 
-        if metric == 'acc' and (best_val_acc == metric_hist).all():
-            return True
-        elif metric == 'loss' and (best_val_loss == metric_hist).all():
+        if ((metric == 'acc' and (best_val_acc == metric_hist).all()) or
+                (metric == 'loss' and (best_val_loss == metric_hist).all())):
             return True
 
         # TODO: make min_delta work
@@ -273,7 +277,12 @@ class Solver(object):
                 loss_sum += loss.item()
                 acc_sum += self.compute_acc(output, target, data).item()
 
-        loss_sum /= data_loader.num_samples
+        if self.loss_func_infer.reduction == 'elementwise_mean':
+            loss_sum /= len(data_loader)
+        elif self.loss_func_infer.reduction == 'sum':
+            loss_sum /= data_loader.num_samples
+        else:
+            raise NotImplementedError
         acc = acc_sum / data_loader.num_samples
 
         return loss_sum, acc
