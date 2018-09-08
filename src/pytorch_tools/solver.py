@@ -89,14 +89,6 @@ class Solver(object):
         else:
             return train_loss[0], train_acc[0], val_loss[0], val_acc[0]
 
-    @property
-    def trained_epochs(self):
-        """
-        :returns: number of trained epochs
-        :rtype: int
-        """
-        return len(self.train_hist['acc'])
-
     def early_stopping(self):
         """
         :returns: if solver should stop early
@@ -133,6 +125,7 @@ class Solver(object):
 
     def reset(self):
         """Reset solver."""
+        self.trained_epochs = 0
         self.best_val_model = self.optim = None
         self.train_hist = dict(loss=[], acc=[])
         self.val_hist = dict(loss=[], acc=[])
@@ -182,6 +175,7 @@ class Solver(object):
 
             loss /= len(data_loader)
             acc = acc_sum / data_loader.num_samples
+            self.trained_epochs += 1
             if save_hist:
                 self.train_hist['acc'].append(acc)
                 self.train_hist['loss'].append(loss)
@@ -287,7 +281,7 @@ class Solver(object):
 
         return loss_sum, acc
 
-    def epochs_iter(self, epochs):
+    def epochs_iter(self, epochs=None):
         """Epochs iterator with support for infinite iterations."""
         if epochs is None:
             epochs = self._epochs
