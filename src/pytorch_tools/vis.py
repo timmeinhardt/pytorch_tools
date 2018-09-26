@@ -10,13 +10,14 @@ logging.getLogger('visdom').setLevel(logging.CRITICAL)
 
 class BaseVis(object):
 
-    def __init__(self, viz_opts, update_mode='append', env=None, win=None, resume=False):
+    def __init__(self, viz_opts, update_mode='append', env=None, win=None,
+                 resume=False, port=8097):
         self.viz_opts = viz_opts
         self.update_mode = update_mode
         self.win = win
         if env is None:
             env = 'main'
-        self.viz = Visdom(env=env)
+        self.viz = Visdom(env=env, port=port)
         # if resume first plot should not update with replace
         self.removed = not resume
 

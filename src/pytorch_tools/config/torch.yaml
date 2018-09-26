@@ -3,4 +3,5 @@ deterministic: True             # if True, fast CUDNN is deactivated
 benchmark: False                # if True, CUDNN finds best methods. select if input dims do not change.
 print_config: False
 log_to_db: False
+vis_port: 8097
 
