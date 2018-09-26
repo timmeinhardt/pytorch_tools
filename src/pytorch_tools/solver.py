@@ -99,28 +99,25 @@ class Solver(object):
         metric = self._early_stopping['metric']
 
         # early stoppping deactivated
-        if patience is None or self.trained_epochs < patience:
+        if patience is None or self.trained_epochs <= patience:
             return False
 
         _, _, best_val_loss, best_val_acc = self.best_metrics()
 
-        if self.trained_epochs < patience:
+        if metric == 'acc':
+            curr_best = best_val_acc
+            prev_best = torch.tensor(self.val_hist['acc'][:-patience]).max()
+        elif metric == 'loss':
+            curr_best = best_val_loss
+            prev_best = torch.tensor(self.val_hist['loss'][:-patience]).min()
+        else:
+            raise NotImplementedError
+
+        compare_func = torch.gt
+        if min_delta:
+            compare_func = torch.ge
+        if compare_func(curr_best.sub(prev_best).abs(), min_delta):
             return False
-
-        metric_hist = torch.Tensor(self.val_hist[metric][-patience:])
-
-        if ((metric == 'acc' and (best_val_acc == metric_hist).all()) or
-                (metric == 'loss' and (best_val_loss == metric_hist).all())):
-            return True
-
-        # TODO: make min_delta work
-        for m in metric_hist:
-            if metric == 'acc':
-                if (m - best_val_acc).cpu().numpy() >= min_delta:
-                    return False
-            else:
-                if (m - best_val_loss).item() <= min_delta:
-                    return False
         return True
 
     def reset(self):

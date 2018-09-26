@@ -71,11 +71,11 @@ class LineVis(BaseVis):
             self.removed = True
 
 
-class SurfVis(BaseVis):
-    """Visdom Surface Visualization Helper Class."""
+class HeatVis(BaseVis):
+    """Visdom heatmap visualization helper class."""
 
     def __init__(self, *args, **kwargs):
-        super(SurfVis, self).__init__(*args, **kwargs)
+        super(HeatVis, self).__init__(*args, **kwargs)
         self.X_hist = []
 
     def plot(self, X):
@@ -85,20 +85,23 @@ class SurfVis(BaseVis):
         """
         #if self.win is None:
         #    self.X_hist = []
-        self.X_hist.append(X)
+        self.X_hist.append(X.clone().cpu())
         if len(self.X_hist) < 2:
             return
 
         X_hist = torch.stack(self.X_hist).numpy().astype(np.float64)
 
-        self.win = self.viz.contour(
+        self.win = self.viz.heatmap(
             X=X_hist,
             opts=self.viz_opts,
             win=self.win, )
         self.viz.save([self.viz.env])
 
     def close(self):
-        super(SurfVis, self).close()
+        super(HeatVis, self).close()
+        self.X_hist = []
+
+    def reset(self):
         self.X_hist = []
 
 
