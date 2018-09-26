@@ -59,7 +59,6 @@ class BaseNN(nn.Module):
         """Reset model."""
         self.reset_parameters()
         self.zero_grad()
-        self.set_dropout_rates(self.init_dropout_rates)
 
     def reset_parameters(self):
         """Reset all trainable model parameters."""
