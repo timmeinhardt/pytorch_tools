@@ -13,13 +13,15 @@ class Solver(object):
 
     def __init__(self, optim, optim_kwargs, ada_lr, early_stopping, epochs,
                  loss, loss_kwargs_train=None, loss_kwargs_infer=None,
-                 logger=None, train_log_interval=None):
+                 logger=None, train_log_interval=None,
+                 save_best_val_model_metric=None):
         self._optim_kwargs = optim_kwargs
         self._ada_lr = ada_lr
         self._early_stopping = early_stopping
         self._epochs = epochs
         self._train_log_interval = train_log_interval
         self._logger = logger
+        self._save_best_val_model_metric = save_best_val_model_metric
 
         if train_log_interval is not None:
             assert logger is not None, ('Solver needs a logger function if '
@@ -239,10 +241,19 @@ class Solver(object):
         return loss, acc
 
     def save_best_val_model(self, model):
-        _, _, _, best_val_acc = self.best_metrics()
-        _, _, _, val_acc = self.current_metrics
+        _, _, best_val_loss, best_val_acc = self.best_metrics()
+        _, _, val_loss, val_acc = self.current_metrics
 
-        if (val_acc == best_val_acc).item():
+        assert self._save_best_val_model_metric is not None, (
+            "Choose according to which metric ('loss' or 'acc') the best "
+            "validation model is supposed to be saved.")
+
+        if self._save_best_val_model_metric == 'loss':
+            curr_metric, best_metric = val_loss, best_val_loss
+        elif self._save_best_val_model_metric == 'acc':
+            curr_metric, best_metric = val_acc, best_val_acc
+
+        if best_metric.eq(curr_metric):
             self.best_val_model = copy.deepcopy(model)
 
     def _log(self, log_msg):
